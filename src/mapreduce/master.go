@@ -25,34 +25,75 @@ func (mr *MapReduce) KillWorkers() *list.List {
   }
   return l
 }
+func (mr *MapReduce) send_map(id int, availbaleChannel string) bool{
+          var reply DoJobReply;  
+          arg := DoJobArgs{File:mr.file, Operation: Map, JobNumber:id, NumOtherPhase:mr.nReduce}
+          ok := call(availbaleChannel, "Worker.DoJob", arg, &reply)
+          if ok == false{
+            fmt.Println("can't do map");
+          }
+          return ok;
+}
+func (mr *MapReduce) send_reduce(id int, reduceChannel string) bool{
+          var reply DoJobReply;  
+          arg := DoJobArgs{File:mr.file, Operation: Reduce, JobNumber:id, NumOtherPhase:mr.nMap}
+          ok := call(reduceChannel, "Worker.DoJob", arg, &reply)
+          if ok == false{
+            fmt.Println("can't do reduce");
+          }
+          return ok;
+}
 
 func (mr *MapReduce) RunMaster() *list.List {
-  // Your code here
-  //should return only when all of the map and reduce tasks 
-  //have been executed
-  // var ntasks int
-  // var nios int // number of inputs (for reduce) or outputs (for map)
-  // switch phase {
-  //   case mapPhase:
-  //     ntasks = len(mr.files)
-  //     nios = mr.nReduce
-  //   case reducePhase:
-  //     ntasks = mr.nReduce
-  //     nios = len(mr.files)
-  // }
 
-  for i := 0; i < ntasks; i++{
-    fmt.Println("now on TASK:#####", i)
+  var barrierMap = make(chan int, mr.nMap)
+  var barrierReduce = make(chan int, mr.nReduce);
+  var ok bool;
+  for i := 0; i < mr.nMap; i++{
+    go func(id int){
+      for{
+        ok = false;
+        var availbaleChannel string;
+        select{
+          case availbaleChannel = <- mr.idleChannel:
+              ok = mr.send_map(id, availbaleChannel)
+          case availbaleChannel = <- mr.registerChannel:
+              ok = mr.send_map(id, availbaleChannel)
+        }
+        if ok{ 
+          barrierMap <- id;
+          mr.idleChannel <- availbaleChannel;  
+          return
+        }
+      }
+    }(i)
+  }
+  for i := 0; i < mr.nMap; i++{
+    <- barrierMap
+  }
 
-    createWorker(mr.address, "worker"+strconv.Itoa(i), mapF, reduceF);//wc.go: mapF
-    var regArg RegisterArgs;
-    regArg.Worker = "worker"+strconv.Itoa(i)
-    mr.Register(&regArg, new(struct{}));
-    arg := DoTaskArgs{Phase: phase, TaskNumber: i, NumOtherPhase: nios}
-    ok := call(mr.workers[i], "Worker.DoTask", arg, new(struct{}))
-    if ok != false{
-      fmt.Println("can't do task");
-    }
+
+  for i := 0; i < mr.nReduce; i++{
+    go func(id int){
+      for{
+        var reduceChannel string;
+        ok = false;
+        select{
+        case reduceChannel = <- mr.idleChannel:
+          ok = mr.send_reduce(id, reduceChannel)
+        case reduceChannel = <- mr.registerChannel:
+          ok = mr.send_reduce(id, reduceChannel)
+        }
+        if ok{
+          barrierReduce <- id;
+          mr.idleChannel <- reduceChannel
+          return
+        }
+      }
+    }(i)
+  }
+  for i:= 0; i < mr.nReduce; i++{
+    <- barrierReduce
   }
   return mr.KillWorkers()
 }
