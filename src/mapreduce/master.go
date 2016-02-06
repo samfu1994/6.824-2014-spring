@@ -28,5 +28,31 @@ func (mr *MapReduce) KillWorkers() *list.List {
 
 func (mr *MapReduce) RunMaster() *list.List {
   // Your code here
+  //should return only when all of the map and reduce tasks 
+  //have been executed
+  // var ntasks int
+  // var nios int // number of inputs (for reduce) or outputs (for map)
+  // switch phase {
+  //   case mapPhase:
+  //     ntasks = len(mr.files)
+  //     nios = mr.nReduce
+  //   case reducePhase:
+  //     ntasks = mr.nReduce
+  //     nios = len(mr.files)
+  // }
+
+  for i := 0; i < ntasks; i++{
+    fmt.Println("now on TASK:#####", i)
+
+    createWorker(mr.address, "worker"+strconv.Itoa(i), mapF, reduceF);//wc.go: mapF
+    var regArg RegisterArgs;
+    regArg.Worker = "worker"+strconv.Itoa(i)
+    mr.Register(&regArg, new(struct{}));
+    arg := DoTaskArgs{Phase: phase, TaskNumber: i, NumOtherPhase: nios}
+    ok := call(mr.workers[i], "Worker.DoTask", arg, new(struct{}))
+    if ok != false{
+      fmt.Println("can't do task");
+    }
+  }
   return mr.KillWorkers()
 }

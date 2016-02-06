@@ -64,6 +64,7 @@ type MapReduce struct {
   Workers map[string]*WorkerInfo 
 
   // add any additional state here
+  idleChannel chan string
 }
 
 func InitMapReduce(nmap int, nreduce int,
