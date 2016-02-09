@@ -60,12 +60,11 @@ func (mr *MapReduce) RunMaster() *list.List {
           case availbaleChannel = <- mr.registerChannel:
               ok = mr.send_map(id, availbaleChannel)
         }
-        // if ok{ 
+        if ok{ 
           barrierMap <- id;
           mr.idleChannel <- availbaleChannel;
-          if ok{}  
           return
-        // }
+        }
       }
     }(i)
   }
@@ -85,12 +84,11 @@ func (mr *MapReduce) RunMaster() *list.List {
         case reduceChannel = <- mr.registerChannel:
           ok = mr.send_reduce(id, reduceChannel)
         }
-        // if ok{
+        if ok{
           barrierReduce <- id;
           mr.idleChannel <- reduceChannel
-          if ok{}
           return
-        // }
+        }
       }
     }(i)
   }
